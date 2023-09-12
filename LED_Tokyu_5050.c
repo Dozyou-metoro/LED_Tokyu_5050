@@ -12,3 +12,6 @@
 #include <unistd.h>       //sleep()用
 #include <wiringPi.h>     //delay()用
 
+int main(void){
+    
+}

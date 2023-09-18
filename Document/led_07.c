@@ -33,7 +33,7 @@ int main(int argc, char **argv)
     char **argv_add = NULL;
     char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"}; // 補完するオプション
 
-    char path[] = "/home/metoro/images"; // 画像を入れるフォルダ
+    char path[] = "/home/metoro/led/images"; // 画像を入れるフォルダ
 
     int wait_time = 1; // スライドの待機時間
 

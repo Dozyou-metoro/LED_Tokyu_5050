@@ -1,12 +1,15 @@
 // g++cmd:g++ -o LED_Tokyu_5050 LED_Tokyu_5050.c -Wall -I /home/metoro/rpi-rgb-led-matrix/include -L /home/metoro/rpi-rgb-led-matrix/lib -lrgbmatrix -I /home/metoro/stb -lwiringPi -g -O0
 
 /*
+ディレクトリ構成メモ
 
-led-tokyu-1,2,3,4,
-
-
-
-
+main    led----------------
+        |                 |
+車両    Tokyu------       Mettetsu
+        |         |
+連番    1-----   ,2----- ,   
+　　    |    |    |    |
+画像    png  png  png  png
 
 
 */

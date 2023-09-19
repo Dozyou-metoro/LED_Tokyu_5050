@@ -1,5 +1,15 @@
 // g++cmd:g++ -o LED_Tokyu_5050 LED_Tokyu_5050.c -Wall -I /home/metoro/rpi-rgb-led-matrix/include -L /home/metoro/rpi-rgb-led-matrix/lib -lrgbmatrix -I /home/metoro/stb -lwiringPi -g -O0
 
+/*
+
+led-tokyu-1,2,3,4,
+
+
+
+
+
+
+*/
 #define STB_IMAGE_IMPLEMENTATION
 
 #include <stdio.h>        //標準入出力
@@ -11,16 +21,27 @@
 #include <stb_image.h>    //画像を読み込む
 #include <unistd.h>       //sleep()用
 #include <wiringPi.h>     //delay()用
+#include <time.h>
 
 struct LedCanvas *offscreen_canvas;  // キャンバス(ライブラリの仕様のためグローバル変数にしざるを得ない)
 struct RGBLedMatrix *matrix_options; // 関数がパネルの設定を入れる構造体(同上)
 struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 
 char **get_file_list(char *path, char *ext, int *file_num);
+void filelist_free(char **point, int file_num);
+
+char maindir[] = "/home/metoro/led/";
 
 int main(void)
 {
+    // 初期設定変数
+    char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"}; // 補完するオプション
 
+    char ext_dir[] = "dir";
+
+    // 初期設定
+    memset(buf, 0, sizeof(buf));
+    srand((unsigned int)time(void));
 }
 
 char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ指定:extに"dir"を渡す
@@ -71,7 +92,7 @@ char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ
             continue;
         }
 
-        if ((ext != NULL) && (strcmp(ext, "dir") == 0))//extがディレクトリ指定ではなく、NULLでもない    
+        if ((ext != NULL) && (strcmp(ext, "dir") == 0)) // extがディレクトリ指定ではなく、NULLでもない
         {
             if (strstr(entry->d_name, ext) == NULL) // 指定した拡張子を含まなかったらcontinue
             {
@@ -97,4 +118,13 @@ char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ
 
         strcpy(filename_list[(*file_num) - 1], entry->d_name);
     }
+}
+
+void filelist_free(char **point, int file_num)
+{
+    for (int i = 0; i < file_num; i++)
+    {
+        free(point[i]);
+    }
+    free(point);
 }

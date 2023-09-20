@@ -35,8 +35,8 @@ struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 int led_x = 0, led_y = 0;
 
 char **get_dir_list(char *path, char *ext, int *dir_num);
-void filelist_free(char **point, int dir_num);
-void error_print(char[] message, int return_num);
+void filelist_free(char ***point, int dir_num);
+void error_print(char message[], int return_num);
 
 // 初期設定変数
 
@@ -71,11 +71,13 @@ int main(int argc, char **argv)
     /*初期設定*/
 
     // 変数の初期化
-    memset(dir_path, 0, sizeof(dir_path));
-    memset(dir_path_buf, 0, sizeof(dir_path));
+    memset(dir_path_1, 0, sizeof(dir_path_1));
+    memset(dir_path_2, 0, sizeof(dir_path_2));
+    memset(file_path, 0, sizeof(file_path));
+    memset(dir_path_buf, 0, sizeof(dir_path_buf));
 
     // seedの更新
-    srand((unsigned int)time(void));
+    srand((unsigned int)time(NULL));
 
     // パネルの設定
     argv_add = (char **)malloc(sizeof(argv_add_tmp) / sizeof(*argv_add_tmp) * sizeof(char *)); // コマンドライン引数を生成
@@ -97,14 +99,6 @@ int main(int argc, char **argv)
     /*キャンバスの準備*/
 
     offscreen_canvas = led_matrix_create_offscreen_canvas(matrix_options); // キャンバスを生成
-
-    /*画像バッファの準備*/
-
-    image_buf = (unsigned char *)calloc(sizeof(unsigned char), led_width * led_height * 4 * 3 + offset * led_width * 4 * 2);
-    if (image_buf == NULL)
-    {
-        exit(1);
-    }
 
     /*ここからメイン処理*/
 
@@ -155,9 +149,10 @@ int main(int argc, char **argv)
 
                 print_canvas(file_path);
 
-                filelist_free(file_list);
+                filelist_free(file_list, file_num);
             }
 
+            filelist_free(dir_path_2, dir_num);
             print_panel();
         }
     }
@@ -241,7 +236,7 @@ void filelist_free(char ***point, int dir_num)
 }
 
 // エラーメッセージを表示
-void error_print(char[] message, int return_num)
+void error_print(char message[], int return_num)
 {
     printf("%s,%s\n", strerror(errno), message);
     fflush(stdout);
@@ -252,7 +247,7 @@ void error_print(char[] message, int return_num)
 void print_canvas(char *filepath)
 {
     // 画像を読み込んでCanvasに反映させる
-    printf("%s\n",filepath);
+    printf("%s\n", filepath);
 }
 
 // Canvasをパネルに反映

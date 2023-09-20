@@ -32,19 +32,24 @@ struct LedCanvas *offscreen_canvas;  // キャンバス(ライブラリの仕様
 struct RGBLedMatrix *matrix_options; // 関数がパネルの設定を入れる構造体(同上)
 struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 
+int led_x = 0, led_y = 0;
+
 char **get_dir_list(char *path, char *ext, int *dir_num);
 void filelist_free(char **point, int dir_num);
-void error_print(char[] message, int return_num)
+void error_print(char[] message, int return_num);
 
-    char maindir[] = "/home/metoro/led/";
+// 初期設定変数
 
-int main(void)
+char maindir[] = "/home/metoro/led/";
+
+// 補完するオプション
+char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"};
+
+char ext_dir[] = "dir";
+char ext_png[] = ".png";
+
+int main(int argc, char **argv)
 {
-    // 初期設定変数
-    char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"}; // 補完するオプション
-
-    char ext_dir[] = "dir";
-    char ext_png[] = ".png";
 
     // プログラム用変数
     int dir_num = 0;
@@ -54,16 +59,54 @@ int main(void)
     char dir_path_buf[256];
     char dir_path_1[256]; // 選択された車両のパスを入れる
     char dir_path_2[256]; // 現在選択されている連番幕のパスを入れる
-    char file_path_buf[256];
     char file_path[256];
 
     char **dir_list = NULL;
     char **file_list = NULL;
 
-    // 初期設定
+    char **argv_add = NULL;
+    int argc_copy = 0;       // コマンドライン引数コピー用
+    char **argv_copy = NULL; // コマンドライン引数コピー用
+
+    /*初期設定*/
+
+    // 変数の初期化
     memset(dir_path, 0, sizeof(dir_path));
     memset(dir_path_buf, 0, sizeof(dir_path));
+
+    // seedの更新
     srand((unsigned int)time(void));
+
+    // パネルの設定
+    argv_add = (char **)malloc(sizeof(argv_add_tmp) / sizeof(*argv_add_tmp) * sizeof(char *)); // コマンドライン引数を生成
+    for (int i = 0; i < (int)(sizeof(argv_add_tmp) / sizeof(*argv_add_tmp)); i++)
+    {
+        argv_add[i] = &argv_add_tmp[i][0];
+    }
+
+    add_option(&argc_copy, &argv_copy, argc, argv, sizeof(argv_add_tmp) / sizeof(*argv_add_tmp), argv_add); // コマンドライン引数を補完
+
+    /*パネルの初期設定*/
+
+    matrix_options = led_matrix_create_from_options(&options, &argc_copy, &argv_copy); // 設定項目を反映させる
+    if (matrix_options == NULL)
+    {
+        exit(1);
+    }
+
+    /*キャンバスの準備*/
+
+    offscreen_canvas = led_matrix_create_offscreen_canvas(matrix_options); // キャンバスを生成
+
+    /*画像バッファの準備*/
+
+    image_buf = (unsigned char *)calloc(sizeof(unsigned char), led_width * led_height * 4 * 3 + offset * led_width * 4 * 2);
+    if (image_buf == NULL)
+    {
+        exit(1);
+    }
+
+    /*ここからメイン処理*/
 
     while (1)
     {
@@ -120,6 +163,7 @@ int main(void)
     }
 }
 
+// ディレクトリの中身を返す
 char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ指定:extに"dir"を渡す
 {
     // readdir()がらみの定数
@@ -185,6 +229,7 @@ char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ�
     }
 }
 
+// リストをfree()
 void filelist_free(char ***point, int dir_num)
 {
     for (int i = 0; i < dir_num; i++)
@@ -195,6 +240,7 @@ void filelist_free(char ***point, int dir_num)
     point = NULL;
 }
 
+// エラーメッセージを表示
 void error_print(char[] message, int return_num)
 {
     printf("%s,%s\n", strerror(errno), message);
@@ -202,11 +248,43 @@ void error_print(char[] message, int return_num)
     exit(return_num);
 }
 
+// 画像を読んでCanvasを更新
 void print_canvas(char *filepath)
 {
     // 画像を読み込んでCanvasに反映させる
 }
 
-void print_panel(void){
-    //Canvasをパネルに反映する
+// Canvasをパネルに反映
+void print_panel(void)
+{
+    // Canvasをパネルに反映する
+}
+
+// コマンドライン引数を生成
+void add_option(int *argc_copy, char ***argv_copy, int argc, char **argv, int argc_add, char **argv_add)
+{
+    int add_flug = 0;
+    if (strcmp(argv[argc - 1], "-add") == 0) // 補完なしを指定された場合
+    {
+        add_flug = 1;
+        argc_add = 0;
+    }
+
+    *argc_copy = argc - add_flug + argc_add; // オプション追加後のargcを計算
+    *argv_copy = (char **)malloc(sizeof(char *) * (*argc_copy));
+    if (*argv_copy == NULL)
+    {
+        exit(2);
+    }
+
+    for (int i = 0; i < argc - add_flug; i++)
+    {
+        (*argv_copy)[i] = argv[i];
+        fflush(stdout);
+    }
+
+    for (int i = argc; i < *argc_copy; i++)
+    {
+        (*argv_copy)[i] = argv_add[i - argc - add_flug];
+    }
 }

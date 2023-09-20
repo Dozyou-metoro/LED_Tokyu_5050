@@ -7,9 +7,11 @@ main    led----------------
         |                 |
 車両    Tokyu------       Mettetsu
         |         |
-連番    1-----   ,2----- ,   
+連番    1-----   ,2----- ,
 　　    |    |    |    |
-画像    png  png  png  png
+分類    種別 行先 種別 行先
+        |
+画像    png
 
 
 */
@@ -30,10 +32,11 @@ struct LedCanvas *offscreen_canvas;  // キャンバス(ライブラリの仕様
 struct RGBLedMatrix *matrix_options; // 関数がパネルの設定を入れる構造体(同上)
 struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 
-char **get_file_list(char *path, char *ext, int *file_num);
-void filelist_free(char **point, int file_num);
+char **get_dir_list(char *path, char *ext, int *dir_num);
+void filelist_free(char **point, int dir_num);
+void error_print(char[] message, int return_num)
 
-char maindir[] = "/home/metoro/led/";
+    char maindir[] = "/home/metoro/led/";
 
 int main(void)
 {
@@ -41,13 +44,83 @@ int main(void)
     char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"}; // 補完するオプション
 
     char ext_dir[] = "dir";
+    char ext_png[] = ".png";
+
+    // プログラム用変数
+    int dir_num = 0;
+    int file_num = 0;
+    int rand_num = 0;
+
+    char dir_path_buf[256];
+    char dir_path_1[256]; // 選択された車両のパスを入れる
+    char dir_path_2[256]; // 現在選択されている連番幕のパスを入れる
+    char file_path_buf[256];
+    char file_path[256];
+
+    char **dir_list = NULL;
+    char **file_list = NULL;
 
     // 初期設定
-    memset(buf, 0, sizeof(buf));
+    memset(dir_path, 0, sizeof(dir_path));
+    memset(dir_path_buf, 0, sizeof(dir_path));
     srand((unsigned int)time(void));
+
+    while (1)
+    {
+        // 車両を選択
+        dir_list = get_dir_list(maindir, ext_dir, &dir_num); // /home/metoro/led/ここを読む(車両)
+        if (!dir_list)
+        {
+            error_print("車両データがありません。", 1);
+        }
+
+        rand_num = rand() % dir_num;
+        sprintf(dir_path_1, "%s", dir_list[rand_num]);
+        filelist_free(&dir_list, dir_num);
+
+        // 幕を選択
+
+        // 連番幕の処理
+        for (int i = 0;; i++)
+        {
+            sprintf(dir_path_2, "%s/%d", dir_path_1, i);
+            dir_list = get_dir_list(dir_path_2, ext_dir, &dir_num); // /home/metoro/led/Tokyu/n番/ここを読む(種別等)
+            if (!dir_list)
+            {
+                if (i == 0)
+                {
+                    error_print("幕データが見つかりません", 1);
+                }
+                else
+                {
+                    break; // 連番幕の読み込みが終了
+                }
+            }
+
+            // 種別幕、行先幕等を呼んでいく
+            for (int j = 0; j < dir_num; j++)
+            {
+                sprintf(file_path, "%s/%s", dir_path_2, dir_list[j]);
+                file_list = get_dir_list(file_path, ext_png, &file_num); // /home/metoro/led/Tokyu/n番/種別or行先/ここを読む(幕データ)
+                if (!file_list)
+                {
+                    error_print("幕データが見つかりません", 1);
+                }
+
+                rand_num = rand() % file_num;
+                sprintf(file_path, "%s/%s", dir_list[j], file_list[rand_num]);
+
+                print_canvas(file_path);
+
+                filelist_free(file_list);
+            }
+
+            print_panel();
+        }
+    }
 }
 
-char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ指定:extに"dir"を渡す
+char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ指定:extに"dir"を渡す
 {
     // readdir()がらみの定数
     const int DIR_NO = 4, FILE_NO = 8;
@@ -56,25 +129,12 @@ char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ
     struct dirent *entry = NULL;
     char **filename_list = NULL, **buf = NULL;
 
-    *file_num = 0;
+    *dir_num = 0;
 
     dir = opendir(path);
 
-    if (dir == NULL) // エラーメッセージ集
+    if (dir == NULL)
     {
-        if (errno == ENOENT)
-        {
-            printf("ディレクトリが存在しません。\n");
-        }
-        else if (errno == EACCES)
-        {
-            printf("ディレクトリにアクセスできません。\n");
-        }
-        else
-        {
-            printf("ディレクトリのオープンに失敗しました。エラーコード: %d\n", errno);
-        }
-        fflush(stdout);
         return NULL;
     }
 
@@ -104,8 +164,8 @@ char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ
         }
 
         // 条件に合うものが見つかったらカウンタを+1して、パスを配列に格納
-        *file_num = *file_num + 1;
-        buf = (char **)realloc(filename_list, *file_num * sizeof(char *));
+        *dir_num = *dir_num + 1;
+        buf = (char **)realloc(filename_list, *dir_num * sizeof(char *));
         if (buf == NULL)
         {
             exit(1);
@@ -113,21 +173,40 @@ char **get_file_list(char *path, char *ext, int *file_num) // ディレクトリ
         filename_list = buf;
         buf = NULL;
 
-        filename_list[(*file_num) - 1] = (char *)calloc(256, sizeof(char)); // readdirはNAME_MAX(255)+1文字を返してくる
-        if ((filename_list[(*file_num) - 1]) == NULL)
+        filename_list[(*dir_num) - 1] = (char *)calloc(256, sizeof(char)); // readdirはNAME_MAX(255)+1文字を返してくる
+        if ((filename_list[(*dir_num) - 1]) == NULL)
         {
             exit(2);
         }
 
-        strcpy(filename_list[(*file_num) - 1], entry->d_name);
+        strcpy(filename_list[(*dir_num) - 1], entry->d_name);
+
+        closedir(dir);
     }
 }
 
-void filelist_free(char **point, int file_num)
+void filelist_free(char ***point, int dir_num)
 {
-    for (int i = 0; i < file_num; i++)
+    for (int i = 0; i < dir_num; i++)
     {
-        free(point[i]);
+        free((*point)[i]);
     }
-    free(point);
+    free(*point);
+    point = NULL;
+}
+
+void error_print(char[] message, int return_num)
+{
+    printf("%s,%s\n", strerror(errno), message);
+    fflush(stdout);
+    exit(return_num);
+}
+
+void print_canvas(char *filepath)
+{
+    // 画像を読み込んでCanvasに反映させる
+}
+
+void print_panel(void){
+    //Canvasをパネルに反映する
 }

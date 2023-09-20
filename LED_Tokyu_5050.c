@@ -36,11 +36,14 @@ int led_x = 0, led_y = 0;
 
 char **get_dir_list(char *path, char *ext, int *dir_num);
 void filelist_free(char ***point, int dir_num);
-void error_print(char message[], int return_num);
+void error_print(const char message[], int return_num);
+void print_canvas(char *filepath);
+void print_panel(void);
+void add_option(int *argc_copy, char ***argv_copy, int argc, char **argv, int argc_add, char **argv_add);
 
 // 初期設定変数
 
-char maindir[] = "/home/metoro/led/";
+char maindir[] = "/home/metoro/led";
 
 // 補完するオプション
 char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"};
@@ -90,15 +93,15 @@ int main(int argc, char **argv)
 
     /*パネルの初期設定*/
 
-    matrix_options = led_matrix_create_from_options(&options, &argc_copy, &argv_copy); // 設定項目を反映させる
+    // matrix_options = led_matrix_create_from_options(&options, &argc_copy, &argv_copy); // 設定項目を反映させる
     if (matrix_options == NULL)
     {
-        exit(1);
+        // exit(1);
     }
 
     /*キャンバスの準備*/
 
-    offscreen_canvas = led_matrix_create_offscreen_canvas(matrix_options); // キャンバスを生成
+    // offscreen_canvas = led_matrix_create_offscreen_canvas(matrix_options); // キャンバスを生成
 
     /*ここからメイン処理*/
 
@@ -106,13 +109,13 @@ int main(int argc, char **argv)
     {
         // 車両を選択
         dir_list = get_dir_list(maindir, ext_dir, &dir_num); // /home/metoro/led/ここを読む(車両)
-        if (!dir_list)
+        if (dir_list == NULL)
         {
             error_print("車両データがありません。", 1);
         }
 
         rand_num = rand() % dir_num;
-        sprintf(dir_path_1, "%s", dir_list[rand_num]);
+        sprintf(dir_path_1, "%s/%s", maindir, dir_list[rand_num]);
         filelist_free(&dir_list, dir_num);
 
         // 幕を選択
@@ -122,7 +125,7 @@ int main(int argc, char **argv)
         {
             sprintf(dir_path_2, "%s/%d", dir_path_1, i);
             dir_list = get_dir_list(dir_path_2, ext_dir, &dir_num); // /home/metoro/led/Tokyu/n番/ここを読む(種別等)
-            if (!dir_list)
+            if (dir_list == NULL)
             {
                 if (i == 0)
                 {
@@ -131,6 +134,7 @@ int main(int argc, char **argv)
                 else
                 {
                     break; // 連番幕の読み込みが終了
+                    print_canvas(dir_path_2);
                 }
             }
 
@@ -139,20 +143,20 @@ int main(int argc, char **argv)
             {
                 sprintf(file_path, "%s/%s", dir_path_2, dir_list[j]);
                 file_list = get_dir_list(file_path, ext_png, &file_num); // /home/metoro/led/Tokyu/n番/種別or行先/ここを読む(幕データ)
-                if (!file_list)
+                if (file_list == NULL)
                 {
                     error_print("幕データが見つかりません", 1);
                 }
 
                 rand_num = rand() % file_num;
-                sprintf(file_path, "%s/%s", dir_list[j], file_list[rand_num]);
+                sprintf(file_path, "%s/%s/%s", dir_path_2, dir_list[j], file_list[rand_num]);
 
                 print_canvas(file_path);
 
-                filelist_free(file_list, file_num);
+                filelist_free(&file_list, file_num);
             }
 
-            filelist_free(dir_path_2, dir_num);
+            filelist_free(&dir_list, dir_num);
             print_panel();
         }
     }
@@ -177,9 +181,20 @@ char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ�
         return NULL;
     }
 
-    while ((entry = readdir(dir)) != NULL)
+    while (1)
     {
+        entry = readdir(dir);
+        if (!entry)
+        {
+            break;
+        }
+
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) //.を無視
+        {
+            continue;
+        }
+
+        if (strcmp(entry->d_name, ".git") == 0) //.gitを無視
         {
             continue;
         }
@@ -194,7 +209,7 @@ char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ�
             continue;
         }
 
-        if ((ext != NULL) && (strcmp(ext, "dir") == 0)) // extがディレクトリ指定ではなく、NULLでもない
+        if ((ext != NULL) && (strcmp(ext, "dir") != 0)) // extがディレクトリ指定ではなく、NULLでもない
         {
             if (strstr(entry->d_name, ext) == NULL) // 指定した拡張子を含まなかったらcontinue
             {
@@ -207,7 +222,7 @@ char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ�
         buf = (char **)realloc(filename_list, *dir_num * sizeof(char *));
         if (buf == NULL)
         {
-            exit(1);
+            exit(2);
         }
         filename_list = buf;
         buf = NULL;
@@ -219,9 +234,9 @@ char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ�
         }
 
         strcpy(filename_list[(*dir_num) - 1], entry->d_name);
-
-        closedir(dir);
     }
+    closedir(dir);
+    return filename_list;
 }
 
 // リストをfree()
@@ -236,7 +251,7 @@ void filelist_free(char ***point, int dir_num)
 }
 
 // エラーメッセージを表示
-void error_print(char message[], int return_num)
+void error_print(const char message[], int return_num)
 {
     printf("%s,%s\n", strerror(errno), message);
     fflush(stdout);

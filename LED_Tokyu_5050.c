@@ -252,6 +252,7 @@ void error_print(char[] message, int return_num)
 void print_canvas(char *filepath)
 {
     // 画像を読み込んでCanvasに反映させる
+    printf("%s\n",filepath);
 }
 
 // Canvasをパネルに反映

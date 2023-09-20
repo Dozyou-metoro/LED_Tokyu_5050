@@ -259,6 +259,7 @@ void print_canvas(char *filepath)
 void print_panel(void)
 {
     // Canvasをパネルに反映する
+    //スクロール処理はここ？ファイル分割も視野に
 }
 
 // コマンドライン引数を生成

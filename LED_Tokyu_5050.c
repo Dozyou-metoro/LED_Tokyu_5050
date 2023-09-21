@@ -13,9 +13,13 @@ main    led----------------
         |
 画像    png
 
-
 */
+
+/*#define*/
+
 #define STB_IMAGE_IMPLEMENTATION
+
+/*#include*/
 
 #include <stdio.h>        //標準入出力
 #include <stdlib.h>       //メモリ関係
@@ -26,82 +30,82 @@ main    led----------------
 #include <stb_image.h>    //画像を読み込む
 #include <unistd.h>       //sleep()用
 #include <wiringPi.h>     //delay()用
-#include <time.h>
+#include <time.h>         //rand()用
+
+/*構造体宣言*/
 
 struct LedCanvas *offscreen_canvas;  // キャンバス(ライブラリの仕様のためグローバル変数にしざるを得ない)
 struct RGBLedMatrix *matrix_options; // 関数がパネルの設定を入れる構造体(同上)
 struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 
+typedef struct
+{
+    char maindir[512];
+    char dir_path_1[756];
+    char dir_path_2[759];
+    char file_path[1024];
+
+} file_path;
+
+/*グローバル変数*/
+
 int led_x = 0, led_y = 0;
 
-char **get_dir_list(char *path, char *ext, int *dir_num);
-void filelist_free(char ***point, int dir_num);
-void error_print(const char message[], int return_num);
-void print_canvas(char *filepath);
-void print_panel(void);
-void add_option(int *argc_copy, char ***argv_copy, int argc, char **argv, int argc_add, char **argv_add);
-
-// 初期設定変数
-
-char maindir[] = "/home/metoro/led";
-
-// 補完するオプション
-char argv_add_tmp[][256] = {"--led-slowdown-gpio=2", "--led-no-drop-privs", "--led-cols=64", "--led-rows=32", "--led-chain=3", "--led-pwm-bits=4", "--led-show-refresh", "--led-limit-refresh=120"};
-
+// 拡張子指定用
 char ext_dir[] = "dir";
 char ext_png[] = ".png";
+
+/*プロトタイプ宣言*/
+
+char **get_dir_list(char *, char *, size_t *);
+void filelist_free(char ***, int);
+void error_print(const char[], int);
+void add_option(char *, int *, char ***);
+void print_canvas(char *);
+void print_panel(void);
+
 
 int main(int argc, char **argv)
 {
 
-    // プログラム用変数
-    int dir_num = 0;
-    int file_num = 0;
-    int rand_num = 0;
+    /*プログラム用変数*/
 
-    char dir_path_buf[256];
-    char dir_path_1[256]; // 選択された車両のパスを入れる
-    char dir_path_2[256]; // 現在選択されている連番幕のパスを入れる
-    char file_path[256];
+    file_path path; // pathを入れる
 
-    char **dir_list = NULL;
+    size_t dir_num = 0; // file_path構造体とセットで使用
+    size_t file_num = 0;
+
+    size_t rand_num = 0; // rand()を処理した結果を入れる
+
+    char maindir[1024] = "/home/metoro/led/panel_config.ini"; // 指定されなかった時のデフォルトパス
+
+    char **dir_list = NULL; // get_filepath()を受けるバッファ
     char **file_list = NULL;
 
-    char **argv_add = NULL;
-    int argc_copy = 0;       // コマンドライン引数コピー用
-    char **argv_copy = NULL; // コマンドライン引数コピー用
+    int argc_copy = 0;//コマンドライン引数を入れる
+    char **argv_copy = NULL;
 
     /*初期設定*/
 
     // 変数の初期化
-    memset(dir_path_1, 0, sizeof(dir_path_1));
-    memset(dir_path_2, 0, sizeof(dir_path_2));
-    memset(file_path, 0, sizeof(file_path));
-    memset(dir_path_buf, 0, sizeof(dir_path_buf));
+    memset(path.dir_path_1, 0, sizeof(path.dir_path_1));
+    memset(path.dir_path_2, 0, sizeof(path.dir_path_2));
+    memset(path.file_path, 0, sizeof(path.file_path));
 
     // seedの更新
     srand((unsigned int)time(NULL));
 
-    // パネルの設定
-    argv_add = (char **)malloc(sizeof(argv_add_tmp) / sizeof(*argv_add_tmp) * sizeof(char *)); // コマンドライン引数を生成
-    for (int i = 0; i < (int)(sizeof(argv_add_tmp) / sizeof(*argv_add_tmp)); i++)
+    // panel_config.iniの位置を指定されていたら上書き
+    if (argc > 1)
     {
-        argv_add[i] = &argv_add_tmp[i][0];
+        strcpy(maindir, argv[1]);
     }
 
-    add_option(&argc_copy, &argv_copy, argc, argv, sizeof(argv_add_tmp) / sizeof(*argv_add_tmp), argv_add); // コマンドライン引数を補完
+    // ライブラリに渡すコマンドライン引数を読み込み
+    add_option(maindir, &argc_copy, &argv_copy);
+    
 
-    /*パネルの初期設定*/
-
-    // matrix_options = led_matrix_create_from_options(&options, &argc_copy, &argv_copy); // 設定項目を反映させる
-    if (matrix_options == NULL)
-    {
-        // exit(1);
-    }
-
-    /*キャンバスの準備*/
-
-    // offscreen_canvas = led_matrix_create_offscreen_canvas(matrix_options); // キャンバスを生成
+    
 
     /*ここからメイン処理*/
 
@@ -115,7 +119,7 @@ int main(int argc, char **argv)
         }
 
         rand_num = rand() % dir_num;
-        sprintf(dir_path_1, "%s/%s", maindir, dir_list[rand_num]);
+        sprintf(path.dir_path_1, "%s/%s", maindir, dir_list[rand_num]);
         filelist_free(&dir_list, dir_num);
 
         // 幕を選択
@@ -123,8 +127,8 @@ int main(int argc, char **argv)
         // 連番幕の処理
         for (int i = 0;; i++)
         {
-            sprintf(dir_path_2, "%s/%d", dir_path_1, i);
-            dir_list = get_dir_list(dir_path_2, ext_dir, &dir_num); // /home/metoro/led/Tokyu/n番/ここを読む(種別等)
+            sprintf(path.dir_path_2, "%s/%d", path.dir_path_1, i);
+            dir_list = get_dir_list(path.dir_path_2, ext_dir, &dir_num); // /home/metoro/led/Tokyu/n番/ここを読む(種別等)
             if (dir_list == NULL)
             {
                 if (i == 0)
@@ -134,24 +138,24 @@ int main(int argc, char **argv)
                 else
                 {
                     break; // 連番幕の読み込みが終了
-                    print_canvas(dir_path_2);
+                    print_canvas(path.dir_path_2);
                 }
             }
 
             // 種別幕、行先幕等を呼んでいく
             for (int j = 0; j < dir_num; j++)
             {
-                sprintf(file_path, "%s/%s", dir_path_2, dir_list[j]);
-                file_list = get_dir_list(file_path, ext_png, &file_num); // /home/metoro/led/Tokyu/n番/種別or行先/ここを読む(幕データ)
+                sprintf(path.file_path, "%s/%s", path.dir_path_2, dir_list[j]);
+                file_list = get_dir_list(path.file_path, ext_png, &file_num); // /home/metoro/led/Tokyu/n番/種別or行先/ここを読む(幕データ)
                 if (file_list == NULL)
                 {
                     error_print("幕データが見つかりません", 1);
                 }
 
                 rand_num = rand() % file_num;
-                sprintf(file_path, "%s/%s/%s", dir_path_2, dir_list[j], file_list[rand_num]);
+                sprintf(path.file_path, "%s/%s/%s", path.dir_path_2, dir_list[j], file_list[rand_num]);
 
-                print_canvas(file_path);
+                print_canvas(path.file_path);
 
                 filelist_free(&file_list, file_num);
             }
@@ -163,7 +167,7 @@ int main(int argc, char **argv)
 }
 
 // ディレクトリの中身を返す
-char **get_dir_list(char *path, char *ext, int *dir_num) // ディレクトリ指定:extに"dir"を渡す
+char **get_dir_list(char *path, char *ext, size_t *dir_num) // ディレクトリ指定:extに"dir"を渡す
 {
     // readdir()がらみの定数
     const int DIR_NO = 4, FILE_NO = 8;
@@ -269,34 +273,41 @@ void print_canvas(char *filepath)
 void print_panel(void)
 {
     // Canvasをパネルに反映する
-    //スクロール処理はここ？ファイル分割も視野に
+    // スクロール処理はここ？ファイル分割も視野に
 }
 
 // コマンドライン引数を生成
-void add_option(int *argc_copy, char ***argv_copy, int argc, char **argv, int argc_add, char **argv_add)
+void add_option(char *config_path, int *argc_copy, char ***argv_copy)
 {
-    int add_flug = 0;
-    if (strcmp(argv[argc - 1], "-add") == 0) // 補完なしを指定された場合
+    FILE *fp = NULL;
+    fp = fopen(config_path, "r");
+    if (!fp)
     {
-        add_flug = 1;
-        argc_add = 0;
+        error_print("panel_config.iniがありません。", 1);
     }
 
-    *argc_copy = argc - add_flug + argc_add; // オプション追加後のargcを計算
-    *argv_copy = (char **)malloc(sizeof(char *) * (*argc_copy));
-    if (*argv_copy == NULL)
-    {
-        exit(2);
-    }
+    char **pp_buf = NULL;
 
-    for (int i = 0; i < argc - add_flug; i++)
+    for (int i = 1;; i++)
     {
-        (*argv_copy)[i] = argv[i];
-        fflush(stdout);
-    }
+        pp_buf = (char **)realloc(*argv_copy, sizeof(char *) * (i + 1));
+        if (pp_buf)
+        {
+            *argv_copy = pp_buf;
+            pp_buf = NULL;
+        }
+        else
+        {
+            error_print("mem_error", 2);
+        }
 
-    for (int i = argc; i < *argc_copy; i++)
-    {
-        (*argv_copy)[i] = argv_add[i - argc - add_flug];
+        (*argv_copy)[i] = (char *)calloc(sizeof(char), 100);
+
+        if (fscanf(fp, "%s", (*argv_copy)[i]) == EOF)
+        {
+            free((*argv_copy)[i]);
+            *argc_copy = i;
+            break;
+        }
     }
 }

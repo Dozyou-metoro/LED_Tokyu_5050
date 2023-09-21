@@ -306,7 +306,7 @@ void add_option(char *config_path, int *argc_copy, char ***argv_copy)
         if (fscanf(fp, "%s", (*argv_copy)[i]) == EOF)
         {
             free((*argv_copy)[i]);
-            *argc_copy = i + 1;
+            *argc_copy = i;
             break;
         }
     }

@@ -26,12 +26,9 @@ main    led----------------
 #include <errno.h>        //エラー関係
 #include <time.h>         //rand()用
 #include <led-matrix-c.h> //パネル制御
+#include <wiringPi.h>
 
 /*構造体宣言*/
-
-struct LedCanvas *offscreen_canvas;  // キャンバス(ライブラリの仕様のためグローバル変数にしざるを得ない)
-struct RGBLedMatrix *matrix_options; // 関数がパネルの設定を入れる構造体(同上)
-struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 
 typedef struct
 {
@@ -54,8 +51,10 @@ char **get_dir_list(char *, char *, size_t *);
 void filelist_free(char ***, int);
 void error_print(const char[], int);
 void add_option(char *, int *, char ***);
+void panel_config(int *, char ***);
+void canvas_reset(void);
 void print_canvas(char *);
-void print_panel(void);
+void print_panel(char[]);
 
 int main(int argc, char **argv)
 {
@@ -90,11 +89,14 @@ int main(int argc, char **argv)
     // panel_config.iniの位置を指定されていたら上書き
     if (argc > 1)
     {
-        strcpy(maindir, argv[1]);
+        // strcpy(maindir, argv[1]);
     }
 
     // ライブラリに渡すコマンドライン引数を読み込み
     add_option(maindir, &argc_copy, &argv_copy);
+
+    // パネルの初期設定
+    panel_config(&argc_copy, &argv_copy);
 
     /*ここからメイン処理*/
 
@@ -150,8 +152,9 @@ int main(int argc, char **argv)
             }
 
             filelist_free(&dir_list, dir_num);
-            print_panel();
+            print_panel("us");
+
+            delay(2000);
         }
     }
 }
-

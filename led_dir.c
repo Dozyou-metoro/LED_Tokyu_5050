@@ -1,8 +1,11 @@
-#include <stdio.h>        //標準入出力
-#include <stdlib.h>       //メモリ関係
-#include <dirent.h>       //ディレクトリ関係
-#include <string.h>       //文字列関係
-#include <errno.h>        //エラー関係
+#include <stdio.h>  //標準入出力
+#include <stdlib.h> //メモリ関係
+#include <dirent.h> //ディレクトリ関係
+#include <string.h> //文字列関係
+#include <errno.h>  //エラー関係
+#include <stdint.h> //uint8_t用
+
+extern uint8_t debug_mode;
 
 // ディレクトリの中身を返す
 char **get_dir_list(char *path, char *ext, size_t *dir_num) // ディレクトリ指定:extに"dir"を渡す
@@ -116,9 +119,9 @@ void add_option(char *config_path, int *argc_copy, char ***argv_copy)
 
     char **pp_buf = NULL;
 
-    for (int i = 1;; i++)
+    while(1)
     {
-        pp_buf = (char **)realloc(*argv_copy, sizeof(char *) * (i + 1));
+        pp_buf = (char **)realloc(*argv_copy, sizeof(char *) * (*argc_copy + 1));
         if (pp_buf)
         {
             *argv_copy = pp_buf;
@@ -129,13 +132,21 @@ void add_option(char *config_path, int *argc_copy, char ***argv_copy)
             error_print("mem_error", 2);
         }
 
-        (*argv_copy)[i] = (char *)calloc(sizeof(char), 100);
+        (*argv_copy)[*argc_copy] = (char *)calloc(sizeof(char), 100);
 
-        if (fscanf(fp, "%s", (*argv_copy)[i]) == EOF)
+        if (fscanf(fp, "%s", (*argv_copy)[*argc_copy]) == EOF)
         {
-            free((*argv_copy)[i]);
-            *argc_copy = i;
+            free((*argv_copy)[*argc_copy]);
             break;
         }
+
+        if (strcmp((*argv_copy)[*argc_copy], "-debug") == 0)
+        {
+            debug_mode = 1;
+            free((*argv_copy)[*argc_copy]);//デバッグモードを指定するモードならfree()してなかったことにする
+        }else{
+            (*argc_copy)++;
+        }
+
     }
 }

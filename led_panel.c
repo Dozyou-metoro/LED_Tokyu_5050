@@ -31,10 +31,13 @@ struct LedCanvas *offscreen_canvas;  // キャンバス(ライブラリの仕様
 struct RGBLedMatrix *matrix_options; // 関数がパネルの設定を入れる構造体(同上)
 struct RGBLedMatrixOptions options;  // 設定を入れる構造体(同上)
 
+extern char maindir[];
+
 void scroll_up_panel(void);
 void scroll_down_panel(void);
 void change_panel(void);
 void print_dispray(void);
+void log_output(char[], uint8_t *data, int x_, int y_);
 
 void panel_config(int *argc_copy, char ***argv_copy)
 {
@@ -94,6 +97,9 @@ void print_canvas(char *filepath)
             image_buf[i] = pixel[i]; // 黒色指定はスキップ
         }
     }
+
+    // log_output(image_buf, image_x, image_y);
+
     stbi_image_free(pixel);
     pixel = NULL;
 }
@@ -127,11 +133,15 @@ void print_canvas(char *filepath)
 
 // Canvasをパネルに反映
 void print_panel(char scroll_type[])
-{
+{   
+    log_output("/home/metoro/led/logB.txt", image_buf, 192, 32 );
 
-    memcpy(&pixel_buf[panel_x * (panel_y + offset) * bpp], &image_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp);         // スクロール先をスクロール元へ移動
+    memcpy(&pixel_buf[panel_x * (panel_y + offset) * bpp], &pixel_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp);         // スクロール先をスクロール元へ移動
     memcpy(&pixel_buf[0], &image_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp);                                          // image_bufを下スクロール先領域に入れる
     memcpy(&pixel_buf[panel_x * (panel_y * 2 + offset * 2) * bpp], &image_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp); // image_bufを上スクロール先領域に入れる
+
+    log_output("/home/metoro/led/logA.txt", pixel_buf, 192, 32 * 3 + 8 * 2);
+    
 
     memset(image_buf, 0, sizeof(uint8_t) * panel_x * panel_y * bpp); // image_bufをリセット
 
@@ -166,13 +176,13 @@ void scroll_up_panel(void)
 
                 if (debug_mode != 1)
                 {
-                    led_canvas_set_pixel(offscreen_canvas, x, y, image_buf[n + m], image_buf[n + m + 1], image_buf[n + m + 2]); // キャンバスの座標x,yの色を設定
+                    led_canvas_set_pixel(offscreen_canvas, x, y, pixel_buf[n + m], pixel_buf[n + m + 1], pixel_buf[n + m + 2]); // キャンバスの座標x,yの色を設定
                 }
                 else
                 {
                     for (int j = 0; j < 3; j++)
                     {
-                        display_buf[n + j] = image_buf[n + m + j];
+                        display_buf[n + j] = pixel_buf[n + m + j];
                     }
                 }
             }
@@ -265,17 +275,44 @@ void change_panel(void)
 
 void print_dispray(void)
 {
+
     printf("\e[J"); // 画面リセット
     for (int y = 0; y < panel_y; y++)
     {
         for (int x = 0; x < panel_x; x++)
         {
             int n = (y * panel_x + x) * bpp; // imageコピー用
+
+            int coler = 0;
+
             printf("\e[%dm　", 40 + (display_buf[n] != 0) + (display_buf[n + 1] != 0) * 2 + (display_buf[n + 2] != 0) * 4);
+            // fprintf(fp, "%3d,%3d,%3d　", display_buf[n], display_buf[n + 1], display_buf[n + 2]);
+            delay(1);
         }
         printf("\e[0m\n");
-        
+        // fprintf(fp,"\n");
     }
     printf("\e[32F");
-    
+    // fclose(fp);
+}
+
+void log_output(char path[], uint8_t *data, int x_, int y_)
+{
+    FILE *fp = NULL;
+
+    fp = fopen(path, "w");
+
+    for (int y = 0; y < y_; y++)
+    {
+        for (int x = 0; x < x_; x++)
+        {
+            int n = (y * x_ + x) * bpp; // imageコピー用
+
+            fprintf(fp, "%3d,%3d,%3d　", data[n], data[n + 1], data[n + 2]);
+        }
+
+        fprintf(fp, "\n");
+    }
+
+    fclose(fp);
 }

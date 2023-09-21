@@ -45,6 +45,9 @@ typedef struct
 char ext_dir[] = "dir";
 char ext_png[] = ".png";
 
+char maindir[1024] = "/home/metoro/led"; // 指定されなかった時のデフォルトパス
+
+
 /*プロトタイプ宣言*/
 
 char **get_dir_list(char *, char *, size_t *);
@@ -68,8 +71,7 @@ int main(int argc, char **argv)
 
     size_t rand_num = 0; // rand()を処理した結果を入れる
 
-    char maindir[1024] = "/home/metoro/led"; // 指定されなかった時のデフォルトパス
-
+    
     char **dir_list = NULL; // get_filepath()を受けるバッファ
     char **file_list = NULL;
 
@@ -154,7 +156,7 @@ int main(int argc, char **argv)
             filelist_free(&dir_list, dir_num);
             print_panel("us");
 
-            delay(2000);
+            delay(3000);
         }
     }
 }

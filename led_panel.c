@@ -1,6 +1,7 @@
 /*#define*/
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 
 /*#include*/
 
@@ -12,6 +13,7 @@
 #include <unistd.h>       //sleep()用
 #include <wiringPi.h>     //delay()用
 #include <stdint.h>       //uint8_t用
+#include <stb_image_write.h>
 
 const int bpp = 3;
 
@@ -90,11 +92,20 @@ void print_canvas(char *filepath)
         exit(2);
     }
 
-    for (int i = 0; i < panel_x * panel_y * bpp; i++)
+    for (int y = 0; y < image_y; y++)
     {
-        if (pixel[i])
+        for (int x = 0; x < image_x; x++)
         {
-            image_buf[i] = pixel[i]; // 黒色指定はスキップ
+            int n = (y * panel_x + x) * bpp; // imageコピー用
+            int m = (y * image_x + x) * bpp; // imageコピー用
+
+            for (int j = 0; j < 3; j++)
+            {
+                if (pixel[m + j])
+                {
+                    image_buf[n + j] = pixel[m + j]; // 黒色指定はスキップ
+                }
+            }
         }
     }
 
@@ -133,15 +144,14 @@ void print_canvas(char *filepath)
 
 // Canvasをパネルに反映
 void print_panel(char scroll_type[])
-{   
-    log_output("/home/metoro/led/logB.txt", image_buf, 192, 32 );
+{
+    log_output("/home/metoro/led/logB.png", image_buf, 192, 32);
 
     memcpy(&pixel_buf[panel_x * (panel_y + offset) * bpp], &pixel_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp);         // スクロール先をスクロール元へ移動
     memcpy(&pixel_buf[0], &image_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp);                                          // image_bufを下スクロール先領域に入れる
     memcpy(&pixel_buf[panel_x * (panel_y * 2 + offset * 2) * bpp], &image_buf[0], sizeof(uint8_t) * panel_x * panel_y * bpp); // image_bufを上スクロール先領域に入れる
 
-    log_output("/home/metoro/led/logA.txt", pixel_buf, 192, 32 * 3 + 8 * 2);
-    
+    log_output("/home/metoro/led/logA.png", pixel_buf, 192, 32 * 3 + 8 * 2);
 
     memset(image_buf, 0, sizeof(uint8_t) * panel_x * panel_y * bpp); // image_bufをリセット
 
@@ -187,6 +197,7 @@ void scroll_up_panel(void)
                 }
             }
         }
+        
         if (debug_mode != 1)
         {
             offscreen_canvas = led_matrix_swap_on_vsync(matrix_options, offscreen_canvas); // キャンバスをパネルに反映
@@ -245,7 +256,8 @@ void change_panel(void)
     {
         for (int x = 0; x < panel_x; x++)
         {
-            int n = (y * panel_x + x) * bpp;                // imageコピー用
+            int n = (y * panel_x + x) * bpp; // imageコピー用
+
             int m = (i + panel_y + offset) * panel_x * bpp; // スクロールのoffset用
 
             if (debug_mode != 1)
@@ -287,7 +299,6 @@ void print_dispray(void)
 
             printf("\e[%dm　", 40 + (display_buf[n] != 0) + (display_buf[n + 1] != 0) * 2 + (display_buf[n + 2] != 0) * 4);
             // fprintf(fp, "%3d,%3d,%3d　", display_buf[n], display_buf[n + 1], display_buf[n + 2]);
-            delay(1);
         }
         printf("\e[0m\n");
         // fprintf(fp,"\n");
@@ -315,4 +326,6 @@ void log_output(char path[], uint8_t *data, int x_, int y_)
     }
 
     fclose(fp);
+
+    stbi_write_png(path, x_, y_, 3, data, 0);
 }

@@ -197,7 +197,7 @@ void scroll_up_panel(void)
                 }
             }
         }
-        
+
         if (debug_mode != 1)
         {
             offscreen_canvas = led_matrix_swap_on_vsync(matrix_options, offscreen_canvas); // キャンバスをパネルに反映
@@ -285,26 +285,45 @@ void change_panel(void)
     delay(scroll_time);
 }
 
+int first_flug = 0;
+
 void print_dispray(void)
 {
+    if (!first_flug)
+    {
+        for (int y = 0; y < panel_y; y++)
+        {
+            for (int x = 0; x < panel_x; x++)
+            {
+                int n = (y * panel_x + x) * bpp; // imageコピー用
 
-    printf("\e[J"); // 画面リセット
+                int coler = 0;
+
+                printf("\e[48;2;%d;%d;%dm　", 0, 0, 0);
+                // fprintf(fp, "%3d,%3d,%3d　", display_buf[n], display_buf[n + 1], display_buf[n + 2]);
+            }
+            printf("\n"); // 改行
+            
+        }
+        printf("\e[32F"); // 先頭に移動
+        first_flug = 1;
+    }
+
     for (int y = 0; y < panel_y; y++)
     {
+        printf("\e[0F\e[2K"); // 列の先頭へ&列消去
         for (int x = 0; x < panel_x; x++)
         {
             int n = (y * panel_x + x) * bpp; // imageコピー用
 
             int coler = 0;
 
-            printf("\e[%dm　", 40 + (display_buf[n] != 0) + (display_buf[n + 1] != 0) * 2 + (display_buf[n + 2] != 0) * 4);
-            // fprintf(fp, "%3d,%3d,%3d　", display_buf[n], display_buf[n + 1], display_buf[n + 2]);
+            printf("\e[48;2;%d;%d;%dm　", display_buf[n], display_buf[n + 1], display_buf[n + 2]);
         }
-        printf("\e[0m\n");
-        // fprintf(fp,"\n");
+        printf("\e[0m\e[2E"); // 改行
+        fflush(stdout);
     }
-    printf("\e[32F");
-    // fclose(fp);
+    printf("\e[32F"); // 先頭に移動
 }
 
 void log_output(char path[], uint8_t *data, int x_, int y_)

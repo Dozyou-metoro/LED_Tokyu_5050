@@ -11,6 +11,16 @@ main    led----------------
         |
 画像    png
 
+Todo
+dir:90 mallocへ置き換えを検討
+fir:   sprintf_s()への置換を検討
+       ini>env変更を検討
+dir:135 100の根拠は？
+dir: reallocをmallocで置換できないか検討
+dir:  わざとマクロを使い__func__,__LINE__でエラー箇所を表示するテクニックがある
+dir: exit()からエラー戻り値へ置換
+panel: fp*のエラー処理忘れ
+
 */
 
 /*#define*/

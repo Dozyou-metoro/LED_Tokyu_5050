@@ -1,152 +1,79 @@
-#include <stdio.h>  //標準入出力
-#include <stdlib.h> //メモリ関係
-#include <dirent.h> //ディレクトリ関係
-#include <string.h> //文字列関係
-#include <errno.h>  //エラー関係
-#include <stdint.h> //uint8_t用
+#include <stdlib.h>
+#include <string.h>
 
-extern uint8_t debug_mode;
-
-// ディレクトリの中身を返す
-char **get_dir_list(char *path, char *ext, size_t *dir_num) // ディレクトリ指定:extに"dir"を渡す
+typedef struct
 {
-    // readdir()がらみの定数
-    const int DIR_NO = 4, FILE_NO = 8;
+    char *option;
+    file_list *p_next;
+} file_list;
 
-    DIR *dir = NULL;
-    struct dirent *entry = NULL;
-    char **filename_list = NULL, **buf = NULL;
+file_list *panel_list_start = NULL;
 
-    *dir_num = 0;
-
-    dir = opendir(path);
-
-    if (dir == NULL)
+void divide_option(int argc, char **argv, int *argc_panel, char ***argv_panel)
+{
+    for (int i = 1; i < argc; i++)
     {
-        return NULL;
+        if (strcmp(argv[i], "--") == 0) // LEDパネルのオプション
+        {
+        }
     }
+}
 
+void add_list(file_list *list_start, char *add_str)
+{
     while (1)
     {
-        entry = readdir(dir);
-        if (!entry)
+        if (!list_start) // リストに要素が無い場合
         {
-            break;
-        }
-
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) //.を無視
-        {
-            continue;
-        }
-
-        if (strcmp(entry->d_name, ".git") == 0) //.gitを無視
-        {
-            continue;
-        }
-
-        if ((strcmp(ext, "dir") == 0) && (entry->d_type == FILE_NO)) // ディレクトリ指定ならファイルを無視
-        {
-            continue;
-        }
-
-        if ((strcmp(ext, "dir") != 0) && (entry->d_type == DIR_NO)) // ファイル指定ならディレクトリを無視
-        {
-            continue;
-        }
-
-        if ((ext != NULL) && (strcmp(ext, "dir") != 0)) // extがディレクトリ指定ではなく、NULLでもない
-        {
-            if (strstr(entry->d_name, ext) == NULL) // 指定した拡張子を含まなかったらcontinue
-            {
-                continue;
-            }
-        }
-
-        // 条件に合うものが見つかったらカウンタを+1して、パスを配列に格納
-        *dir_num = *dir_num + 1;
-        buf = (char **)realloc(filename_list, *dir_num * sizeof(char *));
-        if (buf == NULL)
-        {
-            exit(2);
-        }
-        filename_list = buf;
-        buf = NULL;
-
-        filename_list[(*dir_num) - 1] = (char *)calloc(256, sizeof(char)); // readdirはNAME_MAX(255)+1文字を返してくる
-        if ((filename_list[(*dir_num) - 1]) == NULL)
-        {
-            exit(2);
-        }
-
-        strcpy(filename_list[(*dir_num) - 1], entry->d_name);
-    }
-    closedir(dir);
-    return filename_list;
-}
-
-// リストをfree()
-void filelist_free(char ***point, int dir_num)
-{
-    for (int i = 0; i < dir_num; i++)
-    {
-        free((*point)[i]);
-    }
-    free(*point);
-    point = NULL;
-}
-
-// エラーメッセージを表示
-void error_print(const char message[], int return_num)
-{
-    printf("%s,%s\n", strerror(errno), message);
-    fflush(stdout);
-    exit(return_num);
-}
-
-// コマンドライン引数を生成
-void add_option(char *config_path, int *argc_copy, char ***argv_copy)
-{
-    FILE *fp = NULL;
-    char file_path[256];
-
-    sprintf(file_path, "%s/%s", config_path, "panel_config.ini");
-
-    fp = fopen(file_path, "r");
-    if (!fp)
-    {
-        error_print("panel_config.iniがありません。", 1);
-    }
-
-    char **pp_buf = NULL;
-
-    while(1)
-    {
-        pp_buf = (char **)realloc(*argv_copy, sizeof(char *) * (*argc_copy + 1));
-        if (pp_buf)
-        {
-            *argv_copy = pp_buf;
-            pp_buf = NULL;
+            list_start = (file_list *)malloc(sizeof(file_list));
+            list_start->option = add_str;
+            list_start->p_next = NULL;
+            return;
         }
         else
         {
-            error_print("mem_error", 2);
+            list_start = list_start->p_next;
         }
+    }
+}
 
-        (*argv_copy)[*argc_copy] = (char *)calloc(sizeof(char), 100);
+void free_list(file_list *list_start)
+{
+    file_list p_next_buf = NULL;
 
-        if (fscanf(fp, "%s", (*argv_copy)[*argc_copy]) == EOF)
-        {
-            free((*argv_copy)[*argc_copy]);
-            break;
+    while (list_start)
+    {
+        p_next_buf = list_start->p_next;
+        free(list_start);
+        list_start = p_next_buf;
+    }
+}
+
+file_list *access_list(file_list *list_start, size_t list_num)
+{
+    for (int i = 0; i < list_num; i++)
+    {
+        list_start=list_start->p_next;
+        if(!list_start){
+            return NULL;
         }
+    }
+}
 
-        if (strcmp((*argv_copy)[*argc_copy], "-debug") == 0)
-        {
-            debug_mode = 1;
-            free((*argv_copy)[*argc_copy]);//デバッグモードを指定するモードならfree()してなかったことにする
-        }else{
-            (*argc_copy)++;
-        }
+char **change_list_array(file_list *list_start)
+{
+    size_t count = 0;
+    while (list_start)
+    {
+        list_start = list_start->p_next;
+        count++;
+    }
 
+    char **list_str = NULL;
+    list_str = (char **)malloc(sizeof(char *) * count);
+
+    for (int i = 0; i < count; i++)
+    {
+        list_str[i] = (char)malloc(strlen())
     }
 }
